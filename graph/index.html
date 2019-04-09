@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Test</title>
+<style>
+body {
+	background-color: #414141; 
+}
+.line {
+    stroke: #E4002B;
+    fill: none;
+    stroke-width: 3;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: white;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    font-size: 10px;
+    font-family: sans-serif;
+    fill: white;
+}
+
+.text-label {
+    font-size: 10px;
+    font-family: sans-serif;
+    color: white;
+}
+
+.rect {
+    stroke: #293b47;
+    fill: #7A99AC
+}
+</style>
+
+
+<head>
+	<script type = "text/javascript" src = "https://d3js.org/d3.v3.min.js"></script>
+</head>
+
+<body>
+    <script>
+    // User-controlled variables
+    var totalWeeks = 18;
+    var showGlobal = true;
+    var showOwn = true;
+    var showBars = true;
+    
+    // General variables
+    var file = "machine1.csv";
+    
+    var margin = {
+            top: 20,
+            right: 20,
+            bottom: 30,
+            left: 40
+        },
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom,
+        totalwidth = width + margin.left + margin.right,
+        totalheight = height + margin.top + margin.bottom,
+        barPadding = 5;
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", totalwidth + 25)
+        .attr("height", totalheight)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        
+    var barWidth = (width / totalWeeks);
+    var x = d3.scale.linear()
+        	.range([barWidth / 2, width - barPadding - barWidth / 2]);
+    var y = d3.scale.linear()
+		    .range([height, 0]);
+
+    var xAxis = d3.svg.axis()
+		    .scale(x)
+		    .orient("bottom")
+		    .ticks(totalWeeks);
+	var yAxis = d3.svg.axis()
+		    .scale(y)
+		    .orient("left");
+		    
+	x.domain([1, totalWeeks]);
+	
+	var line = d3.svg.line()
+		.x(function(d) {
+		    return x(d.x);
+		})
+		.y(function(d) {
+		    return y(d.yhat);
+		});
+	
+	// Plot x axis
+	svg.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+		.append("text")
+		.attr("class", "label")
+		.attr("x", width + 25)
+		.attr("y", -6)
+		.style("text-anchor", "end")
+		.text("Week");
+
+	// Gets x, y values from the csv and calculates yhat
+    function getValues(csv) {
+    
+    	// Get x and y
+    	var coords = [];
+		var week = 0;
+		var day = 0;
+		var accum = 0;
+		Object.keys(csv).forEach(function(key) {
+			// Get day's time (H:MM:SS or HH:MM:SS)
+			var current = csv[key];
+			var time = current["Date;Failure;Idle;Running"].split(";")[3];
+			
+			// Format time if necessary
+			var timearray = time.split(":");
+			var formattedtime;
+			if (timearray.length != 1) {
+				formattedtime = parseFloat(timearray[0]) * 3600 + parseFloat(timearray[1]) * 60 + parseFloat(timearray[2]); // In seconds
+			} else {
+				formattedtime = +timearray[0];
+			}
+
+			// Add formatted time to accum
+			accum += formattedtime;
+				
+			// Add accum to formatted array if a week has passed.
+			day++;
+			if (day == 7) {
+				// Accum converted to hours
+				coords.push({"x": week, "y": accum / 3600});
+				accum = 0;
+				day = 0;
+				week++;
+			}
+		});
+			
+		// Construct data array
+		var factor = 0.4;
+		var data = [];
+		i = 0;
+		// Skip first weeks where the machine has 0 hours
+		for (; i < totalWeeks && +coords[i].y == 0; i++) {
+			data.push({
+				"yhat": 0,
+				"y": +coords[i].y,
+				"x": +coords[i].x + 1
+				
+			})
+		}
+		
+		// Add first week with hours and its yhat
+		data.push({
+			"yhat": factor * +coords[i].y,
+			"y": +coords[i].y,
+			"x": +coords[i++].x + 1
+		});
+		
+		// Calculate other yhats and add
+		for (; i < totalWeeks; i++) {
+				data.push({
+					"yhat": data[i-1].yhat + (+coords[i].y - data[i-1].yhat) * factor,
+				    "y": +coords[i].y,
+				    "x": +coords[i].x + 1
+		    	})
+		}
+		return data;
+	}
+	
+	// Set y domain and plot y axis
+	function setYDomain(data) {
+		if (data.length == 0) {
+			var ydomain = 10;
+		} else {
+			var ydomain = Math.ceil(d3.max(data, function(d) {
+				return d.y;
+			}));
+		}
+		y.domain([0, ydomain]);
+		
+		// Plot y axis
+		svg.append("g")
+			.attr("class", "y axis")
+			.call(yAxis)
+			.append("text")
+			.attr("x", 80)
+			.attr("class", "label")
+			.attr("y", 6)
+			.attr("dy", ".71em")
+			.style("text-anchor", "end")
+			.text("Working hours");
+				
+		return ydomain;
+	}
+	
+    if (showOwn || showBars) {
+		d3.csv(file, function(csv) {
+			/*
+				Gets the data from a .csv and plots it, calculating the regression. The data is in format x,y.
+				To plot it, a "data" variable is created that contains, for each x coordinate present in the
+				.csv, the y coordinate of the point (as per the .csv) and the calculated value for y in the
+				regression, yhat.
+				
+				To modify the type of regression, the calculation of yhat should be changed. It may be better to
+				perform it outside this script and create a new .csv, eliminating all computations from here.
+			*/
+			// create x and y values
+			var data = getValues(csv);
+			var ydomain = setYDomain(data);
+			var step = height / ydomain;
+			
+			// Log learning percentage for each week (this week's learning in hours over all hours worked).
+			for (i = 1; i < data.length; i++) {
+				console.log(i+1, (data[i].yhat - data[i-1].yhat) * 100 / data[i-1].yhat)
+			}
+			
+			if (showBars) {
+				// Plot bars
+				svg.selectAll(".rect")
+					.data(data)
+					.enter().append("rect")
+					.attr("class", "rect")
+					.attr("y", function(d) {
+						return height - d.y * step;
+					})
+					.attr("height", function(d) {
+						return d.y * step;
+					})
+					.attr("width", barWidth - barPadding)
+					.attr("transform", function(d, i) {
+						var xCoordinate = barWidth * i;
+						return "translate(" + xCoordinate + ")";
+					});
+			}
+			
+			if (showOwn) {
+				// Plot own line
+				svg.append("path")
+					.data([data])
+					.attr("class", "line")
+					.attr("d", line);
+			}
+		});
+	}
+	
+	if (showGlobal) {
+		d3.csv("global.csv", function(csv) {
+			var data = getValues(csv);
+			if (!showOwn && !showBars) {
+				setYDomain(data);
+			}
+			
+			svg.append("path")
+				.data([data])
+				.attr("class", "line")
+				.attr("d", line)
+				.attr("style", "stroke: orange");
+		});
+	}
+	
+	if (!(showGlobal || showBars || showOwn)) {
+		setYDomain([]);
+	}
+    </script>
+</body>

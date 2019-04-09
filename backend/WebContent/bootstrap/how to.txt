@@ -1,0 +1,9 @@
+Open your index.html file and add the following to the head of your document:
+
+<link href="css/bootstrap.css" rel="stylesheet" />
+
+<link href="css/bootstrap-theme.css" rel="stylesheet" />
+
+also add this before your </body> tag:
+
+<script src="js/bootstrap.min.js"></script

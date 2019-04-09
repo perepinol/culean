@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+
+
+<head>
+<meta charset="ISO-8859-1">
+<title>Customer View</title>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+
+	<h1>Quevedo Oy</h1>
+
+	<ul class="navbar">
+		<img alt="logo" src="logo_grey.jpg" style="padding: 0 0 1em 0">
+		<li style="padding: 0 0 0 1em">
+			<a>GENERAL INFO</a>
+			<ul>
+				<li>
+					<p>Name: Quevedo Oy</p>
+				</li>
+				<li>
+					<p>Address: Palosaarentie 1, 65320, Vaasa</p>
+				</li>
+				<li>
+					<p>Piece of data 3</p>
+				</li>
+				<li>
+					<p>Piece of data 4</p>
+				</li>
+			</ul>
+		</li>
+		<li><button>GENERAL LOG</button></li>
+		<li><button>Slow learning % General</button></li>
+	</ul>
+
+	<table class="mainpage">
+		<tr>
+			<td>
+				<img class="graph" src="graph.png">
+			</td>
+			<td class="filters">
+				<table>
+					<th><h2>FILTERS</h2></th>
+					<form method=POST action="customerView.html">
+						<tr><td>
+							<p class="filtertitle">Machines:</p>
+							<select name="machine">
+								<option value="all">All machines</option>
+								<option value="machine1">Machine 1</option>
+								<option value="machine2">Machine 2</option>
+								<option value="machine3">Machine 3</option>
+							</select>
+						</td></tr>
+						<tr><td>
+							<p class="filtertitle">Country:</p>
+							<select name="country">
+								<option value="global">Global</option>
+								<option value="own">[User's country]</option>
+							</select>
+						</td></tr>
+						
+						<tr><td><p class="filtertitle">Display:</p></td></tr>
+						<tr><td><input type="checkbox" value="display" checked> General learning curve</input></td></tr>
+						<tr><td><input type="checkbox" value="display" checked> Working hours (bars)</input></td></tr>
+						<tr><td><input type="checkbox" value="display" checked> Learning curve</input></td></tr>
+						
+						<tr><td><p></p></td></tr>
+						
+						<tr>
+							<td style=""><input type="submit" style="margin: 8em 0 1em 0" value="Apply filters"/></td>
+						</tr>
+						<tr><td><input type="submit" style="margin: 0" value="Remove all filters"/></td></tr>
+					</form>
+				</table>
+			</td>
+		</tr>
+	</table>
+	<form method=GET action="login.html">
+		<input type="submit" class="backbutton" value="< Back"/>
+	</form>
+
+</body>
+</html>

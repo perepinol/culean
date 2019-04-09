@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+	<title>Format</title>
+	<script type = "text/javascript" src = "https://d3js.org/d3.v3.min.js"></script>
+</head>
+<body>
+	<script>
+		d3.csv("Machinetimes_Machine_2.csv", function(csv) {
+			formatted = [];
+			var week = 0;
+			var day = 0;
+			var accum = 0;
+			Object.keys(csv).forEach(function(key) {
+				// Get day's time (H:MM:SS or HH:MM:SS)
+				var current = csv[key];
+				var time = current["Date;Failure;Idle;Running"].split(";")[3];
+				
+				// Format time
+				var timearray = time.split(":");
+				var formattedtime = parseFloat(timearray[0]) * 3600 + parseFloat(timearray[1]) * 60 + parseFloat(timearray[2]); // In seconds
+				
+				// Add formatted time to accum
+				accum += formattedtime;
+				
+				// Add accum to formatted array if a week has passed.
+				day++;
+				if (day == 7) {
+					// Accum converted to hours
+					formatted.push({"x": week, "y": accum / 3600});
+					accum = 0;
+					day = 0;
+					week++;
+				}
+			});
+			Object.keys(formatted).forEach(function(key) {
+				console.log(formatted[key]);
+			});
+		});
+	</script>
+</body>

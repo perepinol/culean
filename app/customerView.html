@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	
+<title>Customer View</title>
+<link href="bootstrap/css/bootstrap.css" rel="stylesheet" />
+<link href="bootstrap/css/bootstrap-theme.css" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	
+	<div class="container-fluid fill">
+		<div class="row" style="height: 100%">
+			<div class="col-2 h-100">
+				<img alt="logo" src="images/logo_grey.jpg" style="width:100%">
+				<div class="navbar" style="height: 70%">
+					<li>
+						<a>GENERAL INFO</a>
+						<ul class="list-group">
+							<li>Name: Quevedo Oy</li>
+							<li>Address: Palosaarentie 1, 65320, Vaasa</li>
+							<li>Piece of data 3</li>
+							<li>Piece of data 4</li>
+						</ul>
+					</li>
+					<li style="width: 100%;">
+						<form method=GET action="log.html">
+							<input type="submit" class="button" value="GENERAL LOG"></input>
+						</form>
+					</li>
+				</div>
+			</div>
+			<div class="col">
+				<div class="row">
+					<div class="col">
+						<h1 style="margin: 1em 0 0 0"> Quevedo Oy </h1>
+					</div>
+					<div class="col-1">
+						<form method=GET action="login.html">
+							<input type="submit" class="backbutton" value="< Back"/>
+						</form>
+					</div>
+				</div>
+				<div class="row" style="margin: 5em 0 0 0;">
+					<div class="col-md-auto" id="chart" style="margin: 4em 0 0 0;"></div>
+					<div class="col" style="background-color: black;">
+						<h3 style="margin: 1em 0 0 0"> FILTERS: </h3>
+						<div class="col" id="root" ></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script type = "text/javascript" src = "https://d3js.org/d3.v3.min.js"></script>
+	<script>
+		function setYDomain(data, globaldata, y) {
+			if (data.length == 0) {
+				var ydomain = 10;
+			} else {
+				var ydomain = Math.ceil(d3.max(data.concat(globaldata), function(d) {
+					return d3.max([d.yhat, d.y]);
+				}));
+			}
+			y.domain([0, ydomain]);
+						
+			return ydomain;
+		}
+
+		// General variables
+		var margin = {
+		        top: 20,
+		        right: 20,
+		        bottom: 30,
+		        left: 40
+		    },
+		    width = 800 - margin.left - margin.right,
+		    height = 416 - margin.top - margin.bottom,
+		    totalwidth = width + margin.left + margin.right,
+		    totalheight = height + margin.top + margin.bottom,
+		    barPadding = 5;
+
+		var svg = d3.select("#chart").append("svg")
+		    .attr("width", totalwidth + 25)
+		    .attr("height", totalheight);
+		    
+		// Plots the graph
+		function plot(owndata, globaldata, showOwn, showGlobal, showBars, totalWeeks, stabDur, stabSteep) {
+			svg.selectAll("*").remove();
+			globaldata = globaldata.slice(0, totalWeeks);
+			svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+			var barWidth = (width / totalWeeks);
+			var x = d3.scale.linear()
+		    	.range([barWidth / 2, width - barPadding - barWidth / 2]);
+			var y = d3.scale.linear()
+				.range([height, 0]);
+
+			var xAxis = d3.svg.axis()
+				.scale(x)
+				.orient("bottom")
+				.ticks(totalWeeks);
+			var yAxis = d3.svg.axis()
+				.scale(y)
+				.orient("left");
+				
+			x.domain([1, totalWeeks]);
+		
+			var line = d3.svg.line()
+				.x(function(d) {
+					return x(d.x);
+				})
+				.y(function(d) {
+					return y(d.yhat);
+				});
+			
+			// Plot x axis
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(xAxis)
+				.append("text")
+				.attr("class", "label")
+				.attr("x", width + 25)
+				.attr("y", -6)
+				.style("text-anchor", "end")
+				.text("Week");
+			
+			// Calculate learning point
+			var consecutive = 0, currentWeek, learned = 0;
+
+			for (i = 1; i < owndata.length; i++) { // Start at week 2 (i=1)
+				currentWeek = (owndata[i].yhat - owndata[i-1].yhat) * 100 / owndata[i-1].yhat;
+				currentWeek = (currentWeek < 0) ? currentWeek * -1 : currentWeek; // Absolute value
+
+				if (currentWeek < stabSteep) {
+					consecutive += 1;
+				} else {
+					consecutive = 0;
+				}
+				if (consecutive == stabDur) {
+					learned = i;
+				}
+			}
+			
+			owndata = owndata.slice(0, totalWeeks);
+			
+			var ydomain = setYDomain(owndata, globaldata, y);
+			
+			// Plot y axis
+			svg.append("g")
+				.attr("class", "y axis")
+				.call(yAxis)
+				.append("text")
+				.attr("x", 80)
+				.attr("class", "label")
+				.attr("y", 6)
+				.attr("dy", ".71em")
+				.style("text-anchor", "end")
+				.text("Working hours");
+				
+				
+			var step = height / ydomain;
+			if (showBars) {
+				// Plot bars
+				svg.selectAll(".rect")
+					.data(owndata)
+					.enter().append("rect")
+					.attr("class", "rect")
+					.attr("y", function(d) {
+						return height - d.y * step;
+					})
+					.attr("height", function(d) {
+						return d.y * step;
+					})
+					.attr("width", barWidth - barPadding)
+					.attr("transform", function(d, i) {
+						var xCoordinate = barWidth * i;
+						return "translate(" + xCoordinate + ")";
+					});
+				// Plot learning point
+				if (learned != 0) {
+					learned = learned - stabDur;
+					var objective = svg.selectAll("rect").filter(function(d, i) {return i-1 == learned;}).attr("style", "fill: blue");
+				}
+			}
+
+			if (showOwn) {
+				// Plot own line
+				svg.append("path")
+					.data([owndata])
+					.attr("class", "line")
+					.attr("d", line);
+			}
+			
+			if (showGlobal) {
+				svg.append("path")
+					.data([globaldata])
+					.attr("class", "line")
+					.attr("d", line)
+					.attr("style", "stroke: #FF7400");
+			}
+		}
+	</script>	
+	
+	<script src="customer.js"></script>
+	<script src="bootstrap/js/bootstrap.min.js"></script>
+</body>
+</html>

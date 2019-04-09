@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	
+<title>Prima View</title>
+<link href="bootstrap/css/bootstrap.css" rel="stylesheet" />
+<link href="bootstrap/css/bootstrap-theme.css" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	
+	<div class="container-fluid fill">
+		<div class="row" style="height: 100%">
+			<div class="col-2 h-100">
+				<img alt="logo" src="images/logo_grey.jpg" style="width:100%">
+				<div class="navbar" style="height: 70%">
+					<li style="width: 100%;">
+						<form method=GET action="/highleveladvisor">
+							<input type="submit" class="button" value="GENERAL LOG"></input>
+						</form>
+					</li>
+					<li style="width: 100%; margin: 1em 0 0 0;">
+						<form method=GET action="hla.html">
+							<input type="submit" class="button" value="Slow learning % General"></input>
+						</form>
+					</li>
+				</div>
+			</div>
+			<div class="col">
+				<div class="row">
+					<div class="col"></div>
+					<div class="col-1">
+						<form method=GET action="login.html">
+							<input type="submit" class="backbutton" value="< Back"/>
+						</form>
+					</div>
+				</div>
+				<div class="row" style="margin: 2em 0 0 0;">
+					<div class="col-md-auto" id="chart" style="margin: 11em 0 0 0;"></div>
+					<div class="col" style="background-color: black;">
+						<h3 style="margin: 1em 0 0 0"> FILTERS: </h3>
+						<div class="col" id="root" ></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<script type = "text/javascript" src = "https://d3js.org/d3.v3.min.js"></script>
+	<script>
+		function getYDomain(data) {
+			var result;
+			if (data.length == 0) {
+				result = 10;
+			} else {
+				var maxs = [];
+				for (var i = 0; i < data.length; i++) {
+					maxs.push(Math.ceil(d3.max(data[i], function(d) {
+						return d.yhat;
+					})));
+				}
+				result = d3.max(maxs, function(d) { return d; });
+			}
+			return result;
+		}
+
+		// General variables		
+		var margin = {
+		        top: 20,
+		        right: 20,
+		        bottom: 30,
+		        left: 40
+		    },
+		    width = 800 - margin.left - margin.right,
+		    height = 416 - margin.top - margin.bottom,
+		    totalwidth = width + margin.left + margin.right,
+		    totalheight = height + margin.top + margin.bottom,
+		    barPadding = 5;
+
+		var svg = d3.select("#chart").append("svg")
+		    .attr("width", totalwidth + 25)
+		    .attr("height", totalheight);
+		
+		function plotLines(data, config, totalWeeks, stabDur, stabSteep, showpoints) {
+			svg.selectAll("*").remove();
+			svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+			
+			// Important variables
+			var barWidth = (width / totalWeeks);
+			
+			var x = d3.scale.linear()
+		    	.range([barWidth / 2, width - barPadding - barWidth / 2]);
+			var y = d3.scale.linear()
+				.range([height, 0]);
+
+			var xAxis = d3.svg.axis()
+				.scale(x)
+				.orient("bottom")
+				.ticks(totalWeeks);
+			var yAxis = d3.svg.axis()
+				.scale(y)
+				.orient("left");
+			
+			var ydomain = getYDomain(data);
+			var step = height / ydomain;
+			x.domain([1, totalWeeks]);
+			y.domain([0, ydomain]);
+		
+			var line = d3.svg.line()
+				.x(function(d) {
+					return x(d.x);
+				})
+				.y(function(d) {
+					return y(d.yhat);
+				});
+			
+			// Plot x axis
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(xAxis)
+				.append("text")
+				.attr("class", "label")
+				.attr("x", width + 25)
+				.attr("y", -6)
+				.style("text-anchor", "end")
+				.text("Week");
+			
+			// Plot y axis
+			svg.append("g")
+				.attr("class", "y axis")
+				.call(yAxis)
+				.append("text")
+				.attr("x", 80)
+				.attr("class", "label")
+				.attr("y", 6)
+				.attr("dy", ".71em")
+				.style("text-anchor", "end")
+				.text("Working hours");
+
+			// Plot trend
+			if (config[0].show) {
+				svg.append("path")
+					.data([data[0].slice(0, totalWeeks)])
+					.attr("class", "line")
+					.attr("d", line)
+					.attr("style", "stroke: #FF7400");
+			}
+
+			// Plot user lines
+			var points = [];
+			for (var i = 1; i < data.length; i++) {
+				if (config[i].show) {
+					svg.append("path")
+						.data([data[i].slice(0, totalWeeks)])
+						.attr("class", "line")
+						.attr("d", line)
+						.attr("style", "stroke: " + config[i].color);
+				}
+				
+				if (showpoints) {
+					var learned = getLearningPoint(data[i], stabDur, stabSteep) - stabDur;
+					if (learned > 0 && learned < totalWeeks) {
+						var point = data[i][learned-1];
+						point["color"] = config[i].color;
+						points.push(point);
+					}					
+				}
+			}
+
+			if (showpoints && points.length > 0) {
+				svg.selectAll(".circle")
+					.data(points).enter()
+					.append("circle")
+					.attr("class", "circle")
+					.attr("cy", function(d) {
+						return height - d.yhat * step;
+					})
+					.attr("r", 5)
+					.attr("transform", function(d, i) {
+						var xCoordinate = barWidth * d.x - barWidth / 2 - 5;
+						return "translate(" + xCoordinate + ")";
+					})
+					.attr("stroke", function(d, i) {
+						return d.color;
+					})
+					.attr("fill", function(d, i) {
+						return d.color;
+					});
+			}
+		}
+			
+		function getLearningPoint(owndata, stabDur, stabSteep) {
+			var consecutive = 0, currentWeek, learned = 0;
+			for (i = 1; i < owndata.length; i++) {
+				currentWeek = (owndata[i].yhat - owndata[i-1].yhat) * 100 / owndata[i-1].yhat;
+				currentWeek = (currentWeek < 0) ? currentWeek * -1 : currentWeek;
+				if (currentWeek < stabSteep) {
+					consecutive += 1;
+				} else {
+					consecutive = 0;
+				}
+				if (consecutive == stabDur) {
+					learned = i;
+					consecutive = 0;
+				}
+			}
+			return learned;
+		}
+	</script>	
+	
+	<script src="prima.js"></script>
+	<script src="bootstrap/js/bootstrap.min.js"></script>
+</body>
+</html>
